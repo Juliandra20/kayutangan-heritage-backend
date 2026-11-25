@@ -3,10 +3,11 @@ import cors from "cors";
 import path from "node:path";
 
 import placeRoutes from "./placeRoutes.js";
-import authRoutes from "./authRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 import categoryRoutes from "./categoryRoutes.js";
 import routeRoutes from "./routeRoutes.js";
 import navigationRoutes from "./navigationRoutes.js";
+import discoveryRoutes from "./discoveryRoutes.js";
 
 const app = express();
 
@@ -48,5 +49,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/routes", routeRoutes);
 app.use("/api/navigation", navigationRoutes);
+app.use("/api/discovery", discoveryRoutes);
 
 export default app;

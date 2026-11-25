@@ -1,6 +1,7 @@
 
 import { Router, type Request, type Response } from "express";
 import db from "./config/database.js";
+import { calculateRoute } from "./services/routingService.js";
 
 const router = Router();
 
@@ -28,7 +29,7 @@ router.post("/route", async (req: Request, res: Response) => {
       });
     }
 
-    // Ambil koordinat kedua tempat dari database
+    // Ambil data tempat dari database
     const [places]: any = await db.execute(
       `SELECT id, name, latitude, longitude, status
        FROM places
@@ -44,11 +45,11 @@ router.post("/route", async (req: Request, res: Response) => {
     }
 
     const origin = places.find(
-      (place: any) => place.id === Number(originPlaceId)
+      (place: any) => Number(place.id) === Number(originPlaceId)
     );
 
     const destination = places.find(
-      (place: any) => place.id === Number(destinationPlaceId)
+      (place: any) => Number(place.id) === Number(destinationPlaceId)
     );
 
     if (!origin || !destination) {
@@ -90,54 +91,11 @@ router.post("/route", async (req: Request, res: Response) => {
       });
     }
 
-    // Ambil API Key OpenRouteService
-    const apiKey = process.env.OPENROUTESERVICE_API_KEY;
-
-    if (!apiKey) {
-      return res.status(500).json({
-        success: false,
-        message: "API Key OpenRouteService belum dikonfigurasi.",
-      });
-    }
-
-    // Hitung rute jalan kaki
-    const orsResponse = await fetch(
-      "https://api.openrouteservice.org/v2/directions/foot-walking/geojson",
-      {
-        method: "POST",
-        headers: {
-          Authorization: apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          coordinates: [
-            [originLng, originLat],
-            [destinationLng, destinationLat],
-          ],
-          instructions: false,
-        }),
-      }
-    );
-
-    const orsData: any = await orsResponse.json();
-
-    if (!orsResponse.ok) {
-      console.error("OPENROUTESERVICE ERROR:", orsData);
-
-      return res.status(502).json({
-        success: false,
-        message: "Gagal menghitung jalur perjalanan.",
-      });
-    }
-
-    const feature = orsData.features?.[0];
-
-    if (!feature) {
-      return res.status(502).json({
-        success: false,
-        message: "Jalur perjalanan tidak ditemukan.",
-      });
-    }
+    // Hitung rute melalui Routing Service
+    const route = await calculateRoute([
+      [originLng, originLat],
+      [destinationLng, destinationLat],
+    ]);
 
     return res.status(200).json({
       success: true,
@@ -155,9 +113,9 @@ router.post("/route", async (req: Request, res: Response) => {
           latitude: destinationLat,
           longitude: destinationLng,
         },
-        distance: feature.properties.summary.distance,
-        duration: feature.properties.summary.duration,
-        coordinates: feature.geometry.coordinates,
+        distance: route.distance,
+        duration: route.duration,
+        coordinates: route.coordinates,
       },
     });
   } catch (error: any) {
@@ -165,7 +123,7 @@ router.post("/route", async (req: Request, res: Response) => {
 
     return res.status(500).json({
       success: false,
-      message: "Terjadi kesalahan saat menghitung rute.",
+      message: error.message || "Terjadi kesalahan saat menghitung rute.",
     });
   }
 });
